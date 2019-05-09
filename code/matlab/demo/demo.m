@@ -1,5 +1,5 @@
-lib_dir = 'c:\work\misc\fx\read_nmea\lib\';
-addpath(genpath(lib_dir))
+%lib_dir = 'c:\work\misc\fx\read_nmea\lib\';
+%addpath(genpath(lib_dir))
 
 data_dir = 'c:\work\misc\fx\read_nmea\demo\';
 filename = '190110.LOG';
