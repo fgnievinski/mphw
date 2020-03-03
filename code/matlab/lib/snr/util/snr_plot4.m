@@ -1,5 +1,5 @@
-function el = snr_plot4 (gps, prn, elev_lim)
-  if (nargin < 3) || isempty(elev_lim),  elev_lim = [1 35];  end
+function [el, status] = snr_plot4 (gps, prn, elev_lim)
+  if (nargin < 3) || isempty(elev_lim),  elev_lim = [1 15];  end
   if isfieldempty(gps, 'info', 'doy')
     gps.info.doy = mydatedoy(gps.info.epoch);
   end
@@ -8,6 +8,8 @@ function el = snr_plot4 (gps, prn, elev_lim)
   snr = gps.data(idx);
   elev = gps.info.elev(idx);
   azim = gps.info.azim(idx);
+  %status = any(idx);
+  status = any(idx) && any(~isnan(snr));
   s1 = '.-k';
   s2 = 'ok';
   subplot(3,2,1)
@@ -54,7 +56,9 @@ function el = snr_plot4 (gps, prn, elev_lim)
   );
   %tmp3 = tmp1;
   tmp3 = @(varargin) [tmp1(), tmp2()];
+  el = [];
   el = addlistener(hs,'XLim','PostSet',tmp3);
+  %el = addlistener(hs,'XLim','PostSet',@(varargin) iif(@() ishghandle(hs), tmp3(varargin{:})));
   title(hs, sprintf('Sat. PRN %02d', prn))
   %break
 end

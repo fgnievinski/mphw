@@ -6,11 +6,13 @@ function snr_plot4_all (nmea, elev_lim)
   for i=1:numel(nmea.info.prn_unique)
     prn = nmea.info.prn_unique(i);
     
-    figure
-    maximize()
-    el = snr_plot4 (nmea, prn, elev_lim);
-    pause()
-    delete(el)
-    close(gcf())
+    ah=figure();
+    maximize(ah)
+    [el, status] = snr_plot4 (nmea, prn, elev_lim);
+    if status,  disp('Paused; hit Enter to continue or Ctrl+C to stop.');  pause();  end
+    if ishghandle(ah)
+      delete(el)
+      close(ah)
+    end
   end
 end
