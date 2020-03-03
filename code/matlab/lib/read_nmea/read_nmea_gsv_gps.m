@@ -1,15 +1,25 @@
-function answer = read_nmea_gsv_gps (filepath, max_num_lines_in_mem)
+function answer = read_nmea_gsv_gps (filepath, downsample_interv, max_num_lines_in_mem)
 %READ_NMEA_GSV: Read NMEA Satellites in View (GSV) data -- GPS only.
 % 
 % SEE ALSO: read_rinex_obs3_single
   
-  if (nargin < 2),  max_num_lines_in_mem = [];  end
+  if (nargin < 2),  downsample_interv = [];  end
+  if (nargin < 3),  max_num_lines_in_mem = [];  end
   
   if iscell(filepath)
     C = filepath;  % shortcut for testing
   else
     C = textscanline(filepath);
   end
+
+  if ~any(strstart('$GPRMC', C)) ...
+  || ~any(strstart('$GPGGA', C))
+    error('MATLAB:read_nmea_gsv_gps:badFile', ...
+      ['No NMEA data detected; '...
+       'check file path, name, and extension:\n%s'], filepath);
+  end
+  
+  C = read_nmea_gsv_decim (C, downsample_interv);
   
   [val, epoch, epoch_unique, num_sat_per_block, status, status_unique] = ...
     read_nmea_gsv_mem (C, max_num_lines_in_mem);
@@ -18,10 +28,10 @@ function answer = read_nmea_gsv_gps (filepath, max_num_lines_in_mem)
   info.prn  = val(:,1);
   info.elev = val(:,2);
   info.azim = val(:,3);
-  info.epoch = [];
-  info.status = [];
+  info.epoch = zeros(0,1);
+  info.status = zeros(0,1);
 
-  info.prn_unique = unique(info.prn);
+  info.prn_unique = unique(info.prn(~isnan(info.prn)));
   info.num_sats = numel(info.prn_unique);
   info.num_sat_per_epoch = num_sat_per_block;
   
@@ -39,6 +49,51 @@ function answer = read_nmea_gsv_gps (filepath, max_num_lines_in_mem)
 
   obs = val(:,end);
   answer = struct('data',obs, 'info',info);
+end
+
+%%
+function C = read_nmea_gsv_decim (C, downsample_interv)
+%READ_NMEA_GSV_DECIM: Decimate data based on sampling interval (in seconds).
+
+  if isempty(downsample_interv) || (downsample_interv == 0),  return;  end
+  isint = @(x) (x==round(x));
+  assert(isint(downsample_interv) && 0 <= downsample_interv && downsample_interv <= 60);
+
+  idx_rmc = strstart('$GPRMC', C);
+  C_rmc = C(idx_rmc);
+
+  f = @(x) x(12:15);
+  sec_str = cell2mat(cellfun2(f, C_rmc));
+  sec = char2doublesum(sec_str);
+    if isempty(sec),  sec = zeros(0,1);  end
+  
+  idx = is_multiple(sec, downsample_interv);
+  %C_rmc(~idx) = {'INVALIDATED'};
+  %C(idx_rmc) = C_rmc;
+  
+  ind_rmc = find(idx_rmc);
+  ind_rmc2 = ind_rmc(idx);
+  C_rmc2 = C_rmc(idx);
+    assert(isequaln(C_rmc2, C(ind_rmc2)));
+  
+  idx_gga = strstart('$GPGGA', C);
+  C_gga = C(idx_gga);
+  %f = @(x) x(7:(1:8));
+  f = @(x) x((7+1):min(end,7+8));  % empty output if necessary
+  %gga_time = cell2mat(cellfun2(f, C_gga));
+  %rmc_time = cell2mat(cellfun2(f, C_rmc2));
+  %[idx, ind_rmc23] = ismember(gga_time, rmc_time, 'rows');
+  gga_time = cellfun2(f, C_gga);
+  rmc_time = cellfun2(f, C_rmc2);
+  [idx, ind_rmc23] = ismember(gga_time, rmc_time);
+  
+  ind_gga = find(idx_gga);
+  ind_gga3 = ind_gga(idx);  % [1 301 601 ...]
+  ind_rmc3 = ind_rmc2(ind_rmc23(ind_rmc23>0));  % [5 305 605 ...]
+
+  % ind_good = [1 2 3 4 5 301 302 303 304 305 601 602 ...]';
+  ind_good = cell2mat(arrayfun2(@(a,b) (a:b)', ind_gga3, ind_rmc3));
+  C = C(ind_good);
 end
 
 %% parse file in chunks that fit in memory:
@@ -69,6 +124,7 @@ function varargout = read_nmea_gsv_mem (C, max_num_lines_in_mem)
   end
   varargout = cell(nargout,1);
   for j=1:nargout
+    %[val, epoch, epoch_unique, num_sat_per_block, status, status_unique] = read_nmea_gsv_aux (C)  %% epoch; status; 
     varargout{j} = vertcat(varargouts{:,j});
   end
 end
@@ -82,7 +138,7 @@ function [val, epoch, epoch_unique, num_sat_per_block, status, status_unique] = 
   % - a block may contain a number of sentences
   % - for our purposes, a complete block starts with sentence GGA and ends with RMC
   % - a GSV sentence may be made of more than one GSV message (normally 2 or 3)
-  % - a GSV message contain more than one GSV tuples (up to four)
+  % - a GSV message contains multiple GSV tuples (up to four)
   % - a GSV tuple describes one satellite with four values: PRN, elevation, azimuth, SNR.
 
   %% find beginning and end of each block:
@@ -99,7 +155,7 @@ function [val, epoch, epoch_unique, num_sat_per_block, status, status_unique] = 
   clear I_beg I_end
   [ind_beg, ind_end, num_block] = read_nmea_discard_truncated_blocks (ind_beg, ind_end);
 
-  %% discard blocks not having exactly one GSV message (zero or more than one):
+  %% discard blocks not having exactly one initial GSV message (zero or more than one):
   I_ini = ~cellfun(@isempty, regexp(C, '^\$GPGSV,.,1'));
   ind_ini = find(I_ini);
   %is_ini_in_blk = bsxfun(@lt, ind_beg', ind_ini) ...
@@ -152,7 +208,7 @@ function [val, epoch, epoch_unique, num_sat_per_block, status, status_unique] = 
   %clear ind_beg ind_end
   num_block = num_block - sum(is_blk_bad);
 
-  %% discard partial GSV messages in blocks with missing GSV messages:
+  %% discard partial GSV messages in blocks that have missing GSV messages:
   is_msg_in_badblk = any(is_msg_in_blk(:,is_blk_bad), 2);
   if any(is_msg_in_badblk)
     warning('MATLAB:read_nmea_gsv_gps:msgIsBad', ...
@@ -182,16 +238,21 @@ function [val, epoch, epoch_unique, num_sat_per_block, status, status_unique] = 
     %celldisp(val(1:2))
 
   %% deal with incomplete GSV tuples (missing some of the four values):
+  num_val_per_tuple = 4;  % PRN, elev, azim, SNR.
+  max_num_msg_per_block = 4;
   num_val_per_msg = cellfun(@numel, val1);
-  %num_val_per_tuple = 4;  % PRN, elev, azim, SNR.
-  if any(rem(num_val_per_msg, 4))
-    num_val_missing = ceil(ceil(num_val_per_msg./4)*4-num_val_per_msg);
-    tmp = arrayfun2(@(x) NaN(1,x), num_val_missing);
-    val1 = cellfun2(@(x,y) [x y], val1, tmp);
+  idx = ~is_multiple(num_val_per_msg, num_val_per_tuple);
+  if any(idx)
+    % invalidate the whole message because incomplete tuples do not necessarily occur at the end of the message:
+    num_tuples_per_msg = num_val_per_msg ./ num_val_per_tuple;
+    num_tuples_per_msg = min(num_tuples_per_msg, max_num_msg_per_block);
+    tmp = ceil(num_tuples_per_msg);
+    tmp2 = arrayfun2(@(x) NaN(1,x), tmp(idx)*num_val_per_tuple);
+    val1(idx) = tmp2;
+    %val1(idx) = {[]};  % WRONG! will invalidate not just the message but also the sentence and the block.
     num_val_per_msg = cellfun(@numel, val1);
-    assert(none(rem(num_val_per_msg, 4)))
   end
-  num_tup_per_msg = num_val_per_msg / 4;
+  num_tup_per_msg = num_val_per_msg / num_val_per_tuple;
 
   %% join GSV tuples of a same block:
   val2 = arrayfun2(@(x) cat(2, val1{msg_ind_block==x}), ind_block);
@@ -256,6 +317,7 @@ function [val, epoch, epoch_unique, num_sat_per_block, status, status_unique] = 
   %f = @(x) x(19);  % WRONG!  time width is variable
   f = @(x) x(findk1(x==',', 2)+1);
   status = cell2mat(cellfun2(f, C_rmc));
+    if isempty(status),  status = zeros(0,1);  end
   status(~(status=='A' | status=='V')) = ' ';  % blank unknown status
 
   %% convert epoch from string to numeric:
@@ -267,7 +329,11 @@ function [val, epoch, epoch_unique, num_sat_per_block, status, status_unique] = 
 
   %% check invalid date:
   % GPS Time is a uniformly counting time scale beginning at midnight Jan 05-06, 1980.
-  tmp = cellstr(date_str);
+  if ~isempty(date_str)
+    tmp = cellstr(date_str);
+  else
+    tmp = {};
+  end
   idx = strcmp(tmp, '050180');
   %idx = strcmp(tmp, '080180') | idx;  % another weird case.
   if any(idx)
