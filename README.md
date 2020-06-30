@@ -5,6 +5,8 @@
 
 [Shopping list](https://www.adafruit.com/wishlists/469752)
 
-Publication: Fagundes, M.A.R.; Nievinski, F.G. (2019) "Open-source hardware options for SNR based GPS/GNSS reflectometry – Proof of concept and initial validation", IEEE GNSS+R 2019 – Specialist Meeting on Reflectometry using GNSS and other Signals of Opportunity, 20-22 May 2019, Benevento, Italy. 
+Preprint: Fagundes, M.; Mendonça-Tinti, I.; Iescheck, A.; Akos, D.; Geremia-Nievinski, F. (2020) "An open-source low-cost sensor for SNR-based GNSS reflectometry: Design and long-term validation towards sea level altimetry". Preprint available at (https://www.researchgate.net/publication/341946011)
+
+Poster: Fagundes, M.A.R.; Geremia-Nievinski, F. (2019) "Open-source hardware options for SNR based GPS/GNSS reflectometry – Proof of concept and initial validation", IEEE GNSS+R 2019 – Specialist Meeting on Reflectometry using GNSS and other Signals of Opportunity, 20-22 May 2019, Benevento, Italy. 
 
 ![poster](https://raw.githubusercontent.com/fgnievinski/mphw/master/docs/poster_pre_revisao7b.jpg)
