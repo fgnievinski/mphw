@@ -1,10 +1,11 @@
-function answer = read_nmea_gsv_gps (filepath, downsample_interv, max_num_lines_in_mem)
+function obs = read_nmea_gsv_gps (filepath, downsample_interv, max_num_lines_in_mem, discard_nans)
 %READ_NMEA_GSV: Read NMEA Satellites in View (GSV) data -- GPS only.
 % 
 % SEE ALSO: read_rinex_obs3_single
   
   if (nargin < 2),  downsample_interv = [];  end
   if (nargin < 3),  max_num_lines_in_mem = [];  end
+  if (nargin < 4) || isempty(discard_nans),  discard_nans = false;  end
   
   if iscell(filepath)
     C = filepath;  % shortcut for testing
@@ -47,8 +48,29 @@ function answer = read_nmea_gsv_gps (filepath, downsample_interv, max_num_lines_
   info.status = status;
   info.status_unique = status_unique;
 
-  obs = val(:,end);
-  answer = struct('data',obs, 'info',info);
+  snr = val(:,end);
+  obs = struct('data',snr, 'info',info);
+  
+  if ~discard_nans,  return;  end
+  idx = isnan(obs.info.prn) ...
+      | isnan(obs.info.elev) ...
+      | isnan(obs.info.azim) ...
+      | isnan(obs.info.epoch) ...
+      | isnan(obs.info.status);
+  if ~any(idx),  return;  end
+  obs.data(idx) = [];
+  obs.info.prn(idx) = [];
+  obs.info.elev(idx) = [];
+  obs.info.azim(idx) = [];
+  obs.info.epoch(idx) = [];
+  obs.info.status(idx) = [];
+
+  obs.info.prn_unique = unique(obs.info.prn);
+  obs.info.num_sats = numel(obs.info.prn_unique);
+  %obs.info.epoch_unique = unique(info.epoch);
+  [obs.info.epoch_unique, obs.info.num_sat_per_epoch] = unique2(info.epoch);
+  obs.info.num_epochs = numel(info.epoch_unique);
+  obs.info.status_unique = unique(info.epoch);
 end
 
 %%
@@ -134,13 +156,18 @@ function [val, epoch, epoch_unique, num_sat_per_block, status, status_unique] = 
 %READ_NMEA_GSV_AUX: Auxiliary function to read NMEA GSV data.
 
   % Terminology:
-  % - a block is a data portion collected at the same epoch
-  % - a block may contain a number of sentences
-  % - for our purposes, a complete block starts with sentence GGA and ends with RMC
-  % - a GSV sentence may be made of more than one GSV message (normally 2 or 3)
-  % - a GSV message contains multiple GSV tuples (up to four)
-  % - a GSV tuple describes one satellite with four values: PRN, elevation, azimuth, SNR.
-
+  % - a "block" is a data portion collected at the same epoch
+  % - a block may contain a number of "sentences" (not necessarily one per line).
+  % - a complete block starts with a GGA sentence.
+  % - a complete block ends with an RMC sentence.
+  % - a complete block may contain multiple GSV sentences.
+  % - a "GSV sentence" may be made of multiple GSV messages (normally 2 or 3)
+  % - a "GSV message" (one per line) contains multiple GSV tuples (up to four)
+  % - a "GSV tuple" describes one satellite with four GSV field values.
+  % - the "GSV fields" are given in the following order: PRN, elevation, azimuth, SNR;
+  % - the GSV SNR values may be non-integer.
+  % - missing values (often SNR) are delimited by ",," (two subsequent commas with no intervening space)
+  
   %% find beginning and end of each block:
   I_gga = strstart('$GPGGA', C);
   I_rmc = strstart('$GPRMC', C);
@@ -172,7 +199,7 @@ function [val, epoch, epoch_unique, num_sat_per_block, status, status_unique] = 
   ind_end(is_blk_bad) = [];
   num_block = num_block - sum(is_blk_bad);
   
-  %% discard GSV messages outside blocks:  
+  %% discard GSV messages outside any blocks:
   I_msg = strstart('$GPGSV', C);
   ind_msg = find(I_msg);
   %is_msg_in_blk = bsxfun(@lt, ind_beg', ind_msg) ...
@@ -191,11 +218,11 @@ function [val, epoch, epoch_unique, num_sat_per_block, status, status_unique] = 
   ind_msg_old = ind_msg;
   clear ind_ini ind_msg
   
-  %% discard blocks with missing GSV messages or empty GSV messages:
+  %% discard incomplete blocks, with missing GSV messages, i.e., fewer than announced:
   I_ini_old = I_ini;
-  % number of satellites per block:
+  % number of satellites per block -- announced version:
   num_sat_per_block = char2doublesum(cell2mat(cellfun2(@(x) x(12:13), C(I_ini))));
-  % number of messages per block (count):
+  % number of messages per block -- actual count:
   num_msg_per_block = char2double(cellfun(@(x) x(08), C(I_ini)));
   num_msg_per_block2 = sum(is_msg_in_blk)';
   is_blk_bad = (num_msg_per_block ~= num_msg_per_block2) | (num_sat_per_block == 0);
@@ -208,7 +235,7 @@ function [val, epoch, epoch_unique, num_sat_per_block, status, status_unique] = 
   %clear ind_beg ind_end
   num_block = num_block - sum(is_blk_bad);
 
-  %% discard partial GSV messages in blocks that have missing GSV messages:
+  %% discard existing GSV messages in incomplete blocks (with missing GSV messages):
   is_msg_in_badblk = any(is_msg_in_blk(:,is_blk_bad), 2);
   if any(is_msg_in_badblk)
     warning('MATLAB:read_nmea_gsv_gps:msgIsBad', ...
@@ -233,24 +260,37 @@ function [val, epoch, epoch_unique, num_sat_per_block, status, status_unique] = 
   end
 
   %% parse GSV tuples:
+  % (note: blank values are signaled by ",," and may occur anywhere in the sentence.)
   f = @(x) cell2mat(textscan(x(15:end-3), '%f', 'Delimiter',','))';
-  val1 = cellfun2(f, C(I_msg));
+  tmp = C(I_msg);
+  tmp = strrep(tmp, ',*', ',,*');  % fix signaling for blank SNR at the end of a sentence.
+  val1 = cellfun2(f, tmp);
     %celldisp(val(1:2))
 
   %% deal with incomplete GSV tuples (missing some of the four values):
+  % (this is not to be confused with blank values or NaN which are fine)
   num_val_per_tuple = 4;  % PRN, elev, azim, SNR.
   max_num_msg_per_block = 4;
   num_val_per_msg = cellfun(@numel, val1);
   idx = ~is_multiple(num_val_per_msg, num_val_per_tuple);
+  discard_incomplete_messages = true;
   if any(idx)
-    % invalidate the whole message because incomplete tuples do not necessarily occur at the end of the message:
-    num_tuples_per_msg = num_val_per_msg ./ num_val_per_tuple;
-    num_tuples_per_msg = min(num_tuples_per_msg, max_num_msg_per_block);
-    tmp = ceil(num_tuples_per_msg);
-    tmp2 = arrayfun2(@(x) NaN(1,x), tmp(idx)*num_val_per_tuple);
-    val1(idx) = tmp2;
-    %val1(idx) = {[]};  % WRONG! will invalidate not just the message but also the sentence and the block.
-    num_val_per_msg = cellfun(@numel, val1);
+    if discard_incomplete_messages
+      % invalidate the whole message because truncated tuples do not necessarily occur at the end of the message:
+      num_tuples_per_msg = num_val_per_msg ./ num_val_per_tuple;
+      num_tuples_per_msg = min(num_tuples_per_msg, max_num_msg_per_block);
+      tmp = ceil(num_tuples_per_msg);
+      tmp2 = arrayfun2(@(x) NaN(1,x), tmp(idx)*num_val_per_tuple);
+      val1(idx) = tmp2;
+      %val1(idx) = {[]};  % WRONG! will invalidate not just the message but also the whole block.
+      num_val_per_msg = cellfun(@numel, val1);
+    else
+      num_val_missing = ceil(ceil(num_val_per_msg./num_val_per_tuple)*num_val_per_tuple-num_val_per_msg);
+      tmp = arrayfun2(@(x) NaN(1,x), num_val_missing);
+      val1 = cellfun2(@(x,y) [x y], val1, tmp);
+      num_val_per_msg = cellfun(@numel, val1);
+      assert(none(rem(num_val_per_msg, 4)))
+    end
   end
   num_tup_per_msg = num_val_per_msg / num_val_per_tuple;
 
@@ -300,13 +340,17 @@ function [val, epoch, epoch_unique, num_sat_per_block, status, status_unique] = 
   %% extract epoch (date/time) for each block:
   findk1 = @(idx, k) getel(find(idx), k);
   ind_rmc = ind_end;
+  ind_gga = ind_beg;
   C_rmc = C(ind_rmc);
+  C_gga = C(ind_gga);
   f = @(x) x(findk1(x==',', 9)+(1:6));
   date_str = cell2mat(cellfun2(f, C_rmc));
   f = @(x) x(7+(1:6));
   time_str = cell2mat(cellfun2(f, C_rmc));
+  time_str2= cell2mat(cellfun2(f, C_gga));
   f = @(x) x(findk1(x=='.', 1):(findk1(x==',', 2)-1));
   frac_str = cellfun2(f, C_rmc);  % fractional part of time
+  epoch_dont_match = ~strcmp(time_str, time_str2);
   
   %% extract fix status flag:
   % (A stands for active or valid and V for void or warning, although:
@@ -339,9 +383,14 @@ function [val, epoch, epoch_unique, num_sat_per_block, status, status_unique] = 
   if any(idx)
     warning('MATLAB:read_nmea_gsv_gps:epochIsBad', ...
       'Discarding %d bad epoch(s) with initial GPS date (Jan 05-06, 1980).', sum(idx));
+    epoch_unique(idx) = NaN;
   end
-  epoch_unique(idx) = NaN;
-    
+  if any(epoch_dont_match)
+    warning('MATLAB:read_nmea_gsv_gps:epochDontMatch', ...
+      'Discarding %d bad epoch(s) with different initial and ending time.', sum(epoch_dont_match));
+    epoch_unique(epoch_dont_match) = NaN;
+  end
+  
   %% convert fractional seconds:
 %   ns = cellfun(@numel, frac_str);
 %   if all(ns==0)
@@ -382,7 +431,8 @@ function [val, epoch, epoch_unique, num_sat_per_block, status, status_unique] = 
   epoch = epoch_unique(tup_ind_block);
   
   %% replicate status for each tuple:
-  status_unique = status;
+  %status_unique = status;  % WRONG!
+  status_unique = unique(status);
   status = status(tup_ind_block);  
 end
 
@@ -432,6 +482,20 @@ end
 %!   02,04,271,40.5
 %!   03,02,023,37.0
 %! ];
+%! % redefine answer to disable whole line when data is missing:
+%! tmp{2} = [...
+%!   07,62,183,39.0
+%!   09,60,105,30.8
+%!   30,55,250,42.9
+%!   28,33,346,43.7
+%!   NaN,NaN,NaN,NaN
+%!   NaN,NaN,NaN,NaN
+%!   NaN,NaN,NaN,NaN
+%!   NaN,NaN,NaN,NaN
+%!   06,06,309,23.5
+%!   02,04,271,40.5
+%!   03,02,023,37.0
+%! ];
 %! tmpc = cell2mat(tmp);
 %! epoch_unique = mydatenum([...
 %!   2018 06 22  13 12 00.086
@@ -467,7 +531,8 @@ end
 %! info.elev = tmpc(:,2);
 %! info.azim = tmpc(:,3);
 %! 
-%! info.prn_unique = unique(info.prn);
+%! %info.prn_unique = unique(info.prn);
+%! info.prn_unique = unique(info.prn(~isnan(info.prn)));
 %! info.num_sats = numel(info.prn_unique);
 %! info.num_sat_per_epoch = cellfun(@(x) size(x,1), tmp);
 %! info.num_epochs = numel(epoch_unique);
@@ -497,10 +562,12 @@ end
 %! 
 %! %% compare answers:
 %! %answer.data, answer2.data  % DEBUG
+%! %[answer.data, answer2.data]  % DEBUG
 %! %answer.data - answer2.data  % DEBUG
 %! myassert(answer.data, answer2.data)
 %! 
-%! %answer.info, answer2.info  % DEBUG
+%! answer.info, answer2.info  % DEBUG
+%!  %keyboard()  % DEBUG
 %! all_ok = true;
 %! epoch_tol = mydateseci(0.001/2);
 %! fn = fieldnames(answer.info);
@@ -777,6 +844,54 @@ end
 %!   '$GPGSV,3,3,12,08,10,071,31.6,02,09,258,26.2,05,08,219,40.8,27,06,106,28.9*7F'
 %!   '$GPRMC,204840.000,A,2953.6288,S,05017.1826,W,39.68,216.87,230518,,,A*5F'
 %!   '$GPVTG,216.87,T,,M,39.68,N,73.54,K,A*36'
+%! };
+%! answer2 = read_nmea_gsv_gps (C);
+%!  %disp('hw!')
+
+%!test
+%! % problematic input to test (7)
+%! C= {...
+%!  '$GPGGA,000000.000,3001.2742,S,05113.2830,W,2,07,1.08,6.6,M,4.5,M,0000,0000*51'
+%!  '$GPGSV,3,1,11,12,65,144,45,02,59,122,36,25,44,215,38,24,44,351,35*7C'
+%!  '$GPGSV,3,2,11,29,39,266,48,51,20,288,45,05,18,055,43,06,16,141,32*7D'
+%!  '$GPGSV,3,3,11,32,04,260,44,14,02,240,48,31,01,215,*40'
+%!  '$GPRMC,000000.000,A,3001.2742,S,05113.2830,W,0.02,86.75,300719,,,D*58'
+%!  ''
+%!  '$GPGGA,000001.000,3001.2742,S,05113.2830,W,2,07,1.08,6.6,M,4.5,M,0000,0000*50'
+%!  '$GPGSV,3,1,11,12,65,144,45,02,59,122,36,25,44,215,30,24,44,351,35*74'
+%!  '$GPGSV,3,2,11,29,39,266,49,51,20,288,45,05,18,055,43,06,16,141,32*7C'
+%!  '$GPGSV,3,3,11,32,04,260,43,14,02,240,48,31,01,215,*47'
+%!  '$GPRMC,000001.000,A,3001.2742,S,05113.2830,W,0.01,129.37,300719,,,D*68'
+%!  ''
+%!  '$GPGGA,000002.000,3001.2742,S,05113.2830,W,2,07,1.08,6.6,M,4.5,M,0000,0000*53'
+%!  '$GPGSV,3,1,11,12,65,144,45,02,59,122,36,25,44,215,39,24,44,351,35*7D'
+%!  '$GPGSV,3,2,11,29,39,266,48,51,20,288,45,05,18,055,43,06,16,141,33*7C'
+%!  '$GPGSV,3,3,11,32,04,260,43,14,02,240,48,31,01,215,*47'
+%!  '$GPRMC,000002.000,A,3001.2742,S,05113.2830,W,0.01,119.43,300719,,,D*6B'
+%! };
+%! answer2 = read_nmea_gsv_gps (C);
+%!  %disp('hw!')
+
+%!test
+%! % problematic input to test (8)
+%! C= {...
+%!   '$GPGGA,200621.700,3004.4150,S,05107.2679,W,1,12,0.77,68.5,M,4.4,M,,*65'
+%!   '$GPGSV,3,1,12,11,68,292,44.1,14,55,141,46.0,01,53,216,42.7,22,45,227,44.2*7A'
+%!   '$GPGSV,3,2,12,31,40,065,44.1,08,30,327,39.5,32,28,138,48.3,03,27,245,31.1*75'
+%!   '$GPGSV,3,3,12,04,21,313,44.3,23,15,310,41.4,27,12,355,26.0,10,08,099,35.8*7F'
+%!   '$GPRMC,200621.700,A,3004.4150,S,05107.2679,W,0.10,58.97,130220,,,A*5F'
+%!   ''
+%!   '$GPGGA,200621.800,3004.4150,S,05107.2679,W,1,12,0.77,68.5,M,4.4,M,,*6A'
+%!   '$GPGSV,3,1,12,11,68,292,44.7,14,55,141,46.7,01,53,216,44.4,22,45,227,45.2*7F'
+%!   '$GPGSV,3,2,12,31,40,065,44.1,08,30,327,39.5,32,28,138,47.6,03,27,245,31.1*7F'
+%!   '$GPGSV,3,3,12,04,21,313,43.,41.9,27,12,355,28.1,10,08,099,38.1*7A'
+%!   '$GPRMC,200622.100,A,3004.4150,S,05107.2679,W,0.06,58.97,130220,,,A*5D'
+%!   ''
+%!   '$GPGGA,200622.200,3004.4150,S,05107.2679,W,1,12,0.77,68.4,M,4.4,M,,*62'
+%!   '$GPGSV,3,1,12,11,68,292,46.8,14,55,141,45.6,01,53,216,47.4,22,45,227,43.1*76'
+%!   '$GPGSV,3,2,12,31,40,065,45.7,08,30,327,40.5,32,28,138,48.2,03,27,245,34.6*7F'
+%!   '$GPGSV,3,3,12,04,21,313,44.0,23,15,310,39.4,27,12,355,28.1,10,08,099,38.1*78'
+%!   '$GPRMC,200622.200,A,3004.4150,S,05107.2679,W,0.18,62.68,130220,,,A*58'
 %! };
 %! answer2 = read_nmea_gsv_gps (C);
 %!  %disp('hw!')
