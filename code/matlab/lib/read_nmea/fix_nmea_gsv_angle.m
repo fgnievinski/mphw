@@ -1,21 +1,21 @@
-function answer = fix_nmea_gsv_angle (answer)
+function obs = fix_nmea_gsv_angle (obs)
 %FIX_NMEA_GSV_ANGLE: Correct NMEA GSV quantized elevation angle and azimuth.
 
-  assert(isscalar(answer.info.sys_unique))
+  assert(isscalar(obs.info.sys_unique))
 
-  prn   = answer.info.prn;
-  epoch = answer.info.epoch;
+  prn   = obs.info.prn;
+  epoch = obs.info.epoch;
   
-  if ~isfield(answer.info, 'elev_orig'),  answer.info.elev_orig = answer.info.elev;  end
-  if ~isfield(answer.info, 'azim_orig'),  answer.info.azim_orig = answer.info.azim;  end
-  elev = answer.info.elev_orig;
-  azim = answer.info.azim_orig;
+  if ~isfield(obs.info, 'elev_orig'),  obs.info.elev_orig = obs.info.elev;  end
+  if ~isfield(obs.info, 'azim_orig'),  obs.info.azim_orig = obs.info.azim;  end
+  elev = obs.info.elev_orig;
+  azim = obs.info.azim_orig;
   
-  status = answer.info.status;
+  status = obs.info.status;
   active = (status == 'A');
   
-  for i=1:answer.info.num_sats
-    idx = (prn == answer.info.prn_unique(i));
+  for i=1:obs.info.num_sats
+    idx = (prn == obs.info.prn_unique(i));
     idx = idx & active; 
     elevi2 = fix_nmea_gsv_angle_aux (epoch(idx), elev(idx));
     azimi2 = fix_nmea_gsv_angle_aux (epoch(idx), azim(idx), true);
@@ -23,8 +23,8 @@ function answer = fix_nmea_gsv_angle (answer)
     azim(idx) = azimi2;
   end
   
-  answer.info.elev = elev;
-  answer.info.azim = azim;
+  obs.info.elev = elev;
+  obs.info.azim = azim;
 end
 
 %%

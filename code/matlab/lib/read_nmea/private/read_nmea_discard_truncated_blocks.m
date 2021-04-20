@@ -83,8 +83,13 @@ function [ind_beg, ind_end, num_block] = read_nmea_discard_truncated_blocks (ind
     if check,  break;  end
     %keyboard();  % DEBUG
     if (j==j_max)
-      error('MATLAB:read_nmea_gsv_gps:badData', ...
+      warning('MATLAB:read_nmea_gsv_gps:badData', ...
         'Unable to recover block structure.');
+      ind_beg = [];
+      ind_end = [];
+      num_block_beg = 0;
+      check = true;
+      break;
     end
     [ind_beg, ind_end, num_block] = read_nmea_discard_truncated_blocks (ind_beg, ind_end, j_max-1);
   end
