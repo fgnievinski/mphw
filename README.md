@@ -1,5 +1,5 @@
-# mphw
-**Open-source hardware alternatives for SNR-based GPS/GNSS Reflectometry (GNSS-R)**
+# MPHW - Multipath Hardware
+**Open-source low-cost sensor for SNR-based GPS/GNSS Reflectometry (GNSS-R)**
 
 *Tutorial*: [PDF](https://github.com/fgnievinski/mphw/blob/master/docs/Tutorial%20Adafruit%20GNSS-R.pdf) [HTML](https://docs.google.com/document/d/e/2PACX-1vQWZE0kOz02pycYrD1TnTDzAgdpxIq0RMhyQfiYGw8P_tUOE7rEuvWMlt8Ty0SoXUEcO8JzxejXl3Y9/pub)
 
