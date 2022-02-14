@@ -21,7 +21,6 @@ identifiers:
   - type: url
     value: 'https://github.com/fgnievinski/mphw'
 date-released: "2019-05-07"
-
 preferred-citation:
   type: article
   year: 2021
