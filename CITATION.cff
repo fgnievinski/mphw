@@ -44,9 +44,7 @@ preferred-citation:
       family-names: Geremia-Nievinski
       affiliation: Federal University of Rio Grande do Sul
       orcid: 'https://orcid.org/0000-0002-3325-1987'
-  identifiers:
-    - type: doi
-      value: 10.1007/s10291-021-01087-1
+  doi: 10.1007/s10291-021-01087-1
   journal: "GPS Solutions"
   volume: 25
   start: 73
