@@ -23,11 +23,7 @@ identifiers:
 date-released: "2019-05-07"
 preferred-citation:
   type: article
-  year: 2021
   title: "An open-source low-cost sensor for SNR-based GNSS reflectometry: design and long-term validation towards sea-level altimetry"
-  identifiers:
-    - type: doi
-      value: 10.1007/s10291-021-01087-1
   authors:
     - given-names: Manuella
       name-particle: A. R.
@@ -48,8 +44,11 @@ preferred-citation:
       family-names: Geremia-Nievinski
       affiliation: Federal University of Rio Grande do Sul
       orcid: 'https://orcid.org/0000-0002-3325-1987'
-    journal: "GPS Solutions"
-    volume: 26
-    start: 73
-    date-published: "2021-03-10"
+  identifiers:
+    - type: doi
+      value: 10.1007/s10291-021-01087-1
+  journal: "GPS Solutions"
+  volume: 26
+  start: 73
+  date-published: "2021-03-10"
 
