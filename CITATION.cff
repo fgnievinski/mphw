@@ -11,7 +11,6 @@ authors:
     affiliation: Federal University of Rio Grande do Sul
     orcid: 'https://orcid.org/0000-0002-3325-1987'
   - given-names: Manuella
-    name-particle: A. R.
     family-names: Fagundes
     orcid: 'https://orcid.org/0000-0003-3447-8582'
   - given-names: Iuri
@@ -25,19 +24,16 @@ preferred-citation:
   type: article
   title: "An open-source low-cost sensor for SNR-based GNSS reflectometry: design and long-term validation towards sea-level altimetry"
   authors:
-    - given-names: Manuella
-      name-particle: A. R.
+    - given-names: Manuella A. R.
       family-names: Fagundes
       orcid: 'https://orcid.org/0000-0003-3447-8582'
     - given-names: Iuri
       family-names: Mendonça-Tinti
       orcid: 'https://orcid.org/0000-0002-6339-7426'
-    - given-names: Andrea
-      name-particle: L.
+    - given-names: Andrea L.
       family-names: Iescheck
       orcid: 'https://orcid.org/0000-0002-8390-435X'
-    - given-names: Dennis
-      name-particle: M.
+    - given-names: Dennis M.
       family-names: Akos
       orcid: 'https://orcid.org/0000-0003-4393-6442'
     - given-names: Felipe
