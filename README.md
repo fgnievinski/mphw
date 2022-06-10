@@ -7,7 +7,7 @@
 
 Please give credit citing Fagundes et al. (2021):
 
-M. A. R. Fagundes, I. Mendonça-Tinti, A. L. Iescheck, D. M. Akos, F. Geremia-Nievinski (2021), "An open-source low-cost sensor for SNR-based GNSS relectometry: design and long-term validation towards sea-level altimetry" *GPS Solutions*, https://doi.org/10.1007/s10291-021-01087-1
+**M. A. R. Fagundes, I. Mendonça-Tinti, A. L. Iescheck, D. M. Akos, F. Geremia-Nievinski (2021), "An open-source low-cost sensor for SNR-based GNSS relectometry: design and long-term validation towards sea-level altimetry" *GPS Solutions*, https://doi.org/10.1007/s10291-021-01087-1**
 
 Previous works:
 
