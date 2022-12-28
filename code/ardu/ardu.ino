@@ -198,10 +198,11 @@ void GPSSerialEvent()
 
 // configure the GPS settings
 void configGPS(void)
-{
+{    
     //GPSSerial.begin(GPS_BAUD_RATE);
     configGPSBaudRate();
 
+    delay(5000);  // necessary when not using coin battery
     switch (GPS_UPDATE_INTERVAL)
     {
         case 100:
