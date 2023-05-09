@@ -1,7 +1,7 @@
 # MPHW – Multipath Hardware
 **An open-source low-cost sensor for SNR-based GPS/GNSS Reflectometry (GNSS-R)**
 
-*Tutorial*: [PDF](https://github.com/fgnievinski/mphw/blob/master/docs/Tutorial%20MPHW%20GNSS-R.pdf) [HTML](https://docs.google.com/document/d/e/2PACX-1vQWZE0kOz02pycYrD1TnTDzAgdpxIq0RMhyQfiYGw8P_tUOE7rEuvWMlt8Ty0SoXUEcO8JzxejXl3Y9/pub)
+*Build Tutorial*: [PDF](https://github.com/fgnievinski/mphw/blob/master/docs/Tutorial%20MPHW%20GNSS-R.pdf) [HTML](https://docs.google.com/document/d/e/2PACX-1vQWZE0kOz02pycYrD1TnTDzAgdpxIq0RMhyQfiYGw8P_tUOE7rEuvWMlt8Ty0SoXUEcO8JzxejXl3Y9/pub)
 
 [List of materials](https://www.adafruit.com/wishlists/469752)
 (see note below about GPS replacement)
