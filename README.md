@@ -3,7 +3,7 @@
 
 *Build Tutorial*: [PDF](https://github.com/fgnievinski/mphw/blob/master/docs/Tutorial%20MPHW%20GNSS-R.pdf) [HTML](https://docs.google.com/document/d/e/2PACX-1vQWZE0kOz02pycYrD1TnTDzAgdpxIq0RMhyQfiYGw8P_tUOE7rEuvWMlt8Ty0SoXUEcO8JzxejXl3Y9/pub)
 
-*GPS firmware update*: [HTML](https://docs.google.com/document/d/e/2PACX-1vRgaPN-DwLWykGz24BXa2qgG28hbRy6T5IGEQxT7q4LyCSPI0ueQJESf09gBgwl8dzqlyp1pLM3dm-V/pub)
+*GPS firmware update (for 0.1-dB SNR)*: [HTML](https://docs.google.com/document/d/e/2PACX-1vRgaPN-DwLWykGz24BXa2qgG28hbRy6T5IGEQxT7q4LyCSPI0ueQJESf09gBgwl8dzqlyp1pLM3dm-V/pub)
 
 [List of materials](https://www.adafruit.com/wishlists/469752)
 (see note below about GPS replacement)
